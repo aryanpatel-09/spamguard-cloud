@@ -1,0 +1,47 @@
+name: Test and Deploy SpamGuard
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Lambda unit tests
+        run: python -m unittest discover -s backend -v
+
+  deploy-lambda:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Package and deploy Lambda
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        run: |
+          cd backend
+          zip -r ../lambda_package.zip lambda_function.py
+          aws lambda update-function-code \
+            --function-name spamguard-api \
+            --zip-file fileb://../lambda_package.zip
