@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpamGuard — Cloud-Ready Spam Detector</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    .bar-fill { transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased">
+
+  <!-- Top Bar -->
+  <header class="bg-white border-b border-slate-200/80 sticky top-0 z-20">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <span class="font-semibold text-sm sm:text-base tracking-tight text-slate-900">SpamGuard</span>
+          <span class="hidden sm:inline-block ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">v1.0</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-mode-toggle" type="button" class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition">
+          <span id="mode-dot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span id="mode-label">Local Engine</span>
+        </button>
+        <button id="btn-arch-open" type="button" class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition">
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+          <span>Architecture</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5">
+
+    <!-- Main Detector Card -->
+    <section class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <h1 class="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight">Spam detector</h1>
+          <p class="text-sm text-slate-500 mt-0.5">Paste an SMS, email, or chat message to inspect spam risk and trigger signals.</p>
+        </div>
+      </div>
+
+      <!-- Quick Sample Presets -->
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs font-medium text-slate-400 mr-1">Try sample:</span>
+        <button type="button" data-sample="Congratulations! You won a free iPhone. Click this link to claim now." class="sample-btn text-xs px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Prize scam</button>
+        <button type="button" data-sample="URGENT: Your bank account is suspended. Verify KYC immediately at http://bit.ly/verify-kyc-99" class="sample-btn text-xs px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition">KYC phishing</button>
+        <button type="button" data-sample="Meeting at 5 pm, bring notes and the Terraform VPC diagram." class="sample-btn text-xs px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Work update</button>
+        <button type="button" data-sample="Hey, are we still on for coffee after class today?" class="sample-btn text-xs px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Normal chat</button>
+      </div>
+
+      <!-- Input Box -->
+      <div class="space-y-2">
+        <label for="message-input" class="sr-only">Message text</label>
+        <textarea id="message-input" rows="4" maxlength="1000" placeholder="Paste a message and check if it's spam..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none p-3.5 text-sm text-slate-800 placeholder:text-slate-400 resize-y transition">Congratulations! You won a free iPhone. Click this link to claim now.</textarea>
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span id="char-count">71 / 1000 characters</span>
+          <button id="btn-clear" type="button" class="text-slate-500 hover:text-slate-800 font-medium transition">Clear</button>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div class="flex items-center gap-3">
+        <button id="btn-check" type="button" class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-medium text-sm py-2.5 px-4 shadow-sm transition">
+          <i data-lucide="scan-search" class="w-4 h-4"></i>
+          <span id="btn-check-text">Check message</span>
+        </button>
+      </div>
+
+      <!-- Result Card -->
+      <div id="result-card" class="rounded-xl border p-4 space-y-3 transition-all bg-rose-50/80 border-rose-200">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <span id="result-icon-wrap" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 text-rose-700">
+              <i id="result-icon" data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+            </span>
+            <span id="result-label" class="font-semibold text-sm text-rose-800">Spam</span>
+          </div>
+          <span id="result-confidence" class="text-sm font-semibold text-rose-800 tabular-nums">96% confident</span>
+        </div>
+
+        <div class="w-full h-2 rounded-full bg-white/80 overflow-hidden border border-black/5">
+          <div id="result-bar" class="bar-fill h-full rounded-full bg-rose-600" style="width: 96%;"></div>
+        </div>
+
+        <!-- Detected Signals -->
+        <div id="signals-wrap" class="pt-1 flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <!-- Recent Checks -->
+      <div class="pt-2 border-t border-slate-100 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Recent checks</h2>
+          <button id="btn-clear-history" type="button" class="text-xs text-slate-400 hover:text-slate-700 transition">Clear history</button>
+        </div>
+        <ul id="history-list" class="divide-y divide-slate-100"></ul>
+      </div>
+    </section>
+
+    <!-- API & Cloud Config Card (Collapsible) -->
+    <section id="api-panel" class="hidden bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-900">AWS Lambda API Endpoint</h2>
+          <p class="text-xs text-slate-500">Connect your deployed API Gateway / Lambda URL when hosting on GitHub Pages. Falls back to the local scoring engine if empty or unreachable.</p>
+        </div>
+        <button id="btn-api-close" type="button" class="text-slate-400 hover:text-slate-700 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input id="api-url-input" type="url" placeholder="https://your-api-id.execute-api.ap-south-1.amazonaws.com/prod/predict" class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
+        <button id="btn-api-save" type="button" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium transition">Save Endpoint</button>
+      </div>
+      <p id="api-status-msg" class="text-xs text-slate-500"></p>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="max-w-3xl w-full mx-auto px-4 sm:px-6 py-5 text-center text-xs text-slate-400">
+    Frontend on GitHub Pages · API on AWS Lambda · IaC with Terraform &amp; GitHub Actions
+  </footer>
+
+  <!-- Architecture Modal -->
+  <div id="arch-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-xl p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-semibold text-base text-slate-900">Cloud Architecture &amp; CI/CD</h3>
+        <button id="btn-arch-close" type="button" class="text-slate-400 hover:text-slate-700 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div class="space-y-2.5 text-xs sm:text-sm text-slate-600">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-start gap-3">
+          <span class="font-semibold text-slate-800 min-w-[92px]">Frontend</span>
+          <span>Static HTML/JS hosted permanently for ₹0 on GitHub Pages or Cloudflare Pages.</span>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-start gap-3">
+          <span class="font-semibold text-slate-800 min-w-[92px]">Compute</span>
+          <span>Containerized FastAPI / AWS Lambda behind API Gateway (serverless, pay-per-request).</span>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-start gap-3">
+          <span class="font-semibold text-slate-800 min-w-[92px]">IaC &amp; CI/CD</span>
+          <span>Provisioned via Terraform (IAM least-privilege, CloudWatch Logs &amp; Alarms) and deployed via GitHub Actions.</span>
+        </div>
+      </div>
+      <div class="flex justify-end pt-1">
+        <button id="btn-arch-ok" type="button" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-medium transition">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg"></div>
+
+  <script>
+    (function () {
+      const STORAGE_KEY_HISTORY = 'spamguard_history_v1';
+      const STORAGE_KEY_API = 'spamguard_api_url_v1';
+
+      const DEFAULT_HISTORY = [
+        { id: 'seed-1', text: 'Meeting at 5 pm, bring notes', verdict: 'Not spam', confidence: 94, signals: ['Clean conversational tone'] },
+        { id: 'seed-2', text: 'Win cash prize now, reply YES', verdict: 'Spam', confidence: 95, signals: ['Prize / cash lure', 'Urgent call-to-action'] }
+      ];
+
+      const SPAM_RULES = [
+        { pattern: /\b(won|winner|win|prize|lottery|jackpot|reward|gift card|free iphone|cash)\b/i, weight: 32, label: 'Prize / cash lure' },
+        { pattern: /\b(claim now|act now|urgent|immediately|limited time|expires|last chance|hurry)\b/i, weight: 24, label: 'Urgency trigger' },
+        { pattern: /\b(click this link|click here|tap here|verify now|login now|update kyc|kyc|suspended|blocked)\b/i, weight: 28, label: 'Phishing / account lure' },
+        { pattern: /(https?:\/\/[^\s]+|bit\.ly|tinyurl\.com|goo\.gl|t\.co)/i, weight: 18, label: 'External / shortened URL' },
+        { pattern: /\b(otp|pin|cvv|password|bank account|upi|credit card)\b/i, weight: 22, label: 'Sensitive credential request' },
+        { pattern: /\b(reply yes|congratulations|selected|100% free|guaranteed|no cost)\b/i, weight: 18, label: 'Promotional spam phrasing' },
+        { pattern: /[!]{2,}|[$₹]\s?\d{3,}/, weight: 12, label: 'Aggressive punctuation / money figure' }
+      ];
+
+      const SAFE_RULES = [
+        { pattern: /\b(meeting|notes|agenda|project|schedule|tomorrow|homework|class|terraform|github|deploy)\b/i, weight: -18, label: 'Work / academic context' },
+        { pattern: /\b(hey|hi|thanks|thank you|see you|let me know|coffee|lunch)\b/i, weight: -14, label: 'Normal conversational tone' }
+      ];
+
+      let history = loadHistory();
+      let apiUrl = loadApiUrl();
+      let useApi = Boolean(apiUrl);
+
+      const elInput = document.getElementById('message-input');
+      const elCharCount = document.getElementById('char-count');
+      const elBtnCheck = document.getElementById('btn-check');
+      const elBtnCheckText = document.getElementById('btn-check-text');
+      const elBtnClear = document.getElementById('btn-clear');
+      const elBtnClearHistory = document.getElementById('btn-clear-history');
+      const elHistoryList = document.getElementById('history-list');
+      const elResultCard = document.getElementById('result-card');
+      const elResultLabel = document.getElementById('result-label');
+      const elResultConfidence = document.getElementById('result-confidence');
+      const elResultBar = document.getElementById('result-bar');
+      const elResultIconWrap = document.getElementById('result-icon-wrap');
+      const elSignalsWrap = document.getElementById('signals-wrap');
+      const elModeToggle = document.getElementById('btn-mode-toggle');
+      const elModeDot = document.getElementById('mode-dot');
+      const elModeLabel = document.getElementById('mode-label');
+      const elApiPanel = document.getElementById('api-panel');
+      const elApiInput = document.getElementById('api-url-input');
+      const elApiSave = document.getElementById('btn-api-save');
+      const elApiClose = document.getElementById('btn-api-close');
+      const elApiStatus = document.getElementById('api-status-msg');
+      const elArchModal = document.getElementById('arch-modal');
+      const elArchOpen = document.getElementById('btn-arch-open');
+      const elArchClose = document.getElementById('btn-arch-close');
+      const elArchOk = document.getElementById('btn-arch-ok');
+      const elToast = document.getElementById('toast');
+
+      function loadHistory() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY_HISTORY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed;
+          }
+        } catch (_) {}
+        return DEFAULT_HISTORY.slice();
+      }
+
+      function saveHistory() {
+        try {
+          localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history.slice(0, 8)));
+        } catch (_) {}
+      }
+
+      function loadApiUrl() {
+        try {
+          return localStorage.getItem(STORAGE_KEY_API) || '';
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function saveApiUrl(url) {
+        try {
+          if (url) localStorage.setItem(STORAGE_KEY_API, url);
+          else localStorage.removeItem(STORAGE_KEY_API);
+        } catch (_) {}
+      }
+
+      function showToast(msg) {
+        elToast.textContent = msg;
+        elToast.classList.remove('hidden');
+        clearTimeout(showToast._timer);
+        showToast._timer = setTimeout(() => elToast.classList.add('hidden'), 2600);
+      }
+
+      function analyzeLocally(text) {
+        const clean = text.trim();
+        let score = 12;
+        const signals = [];
+
+        for (const rule of SPAM_RULES) {
+          if (rule.pattern.test(clean)) {
+            score += rule.weight;
+            signals.push(rule.label);
+          }
+        }
+
+        // Uppercase ratio check
+        const letters = clean.replace(/[^a-zA-Z]/g, '');
+        if (letters.length >= 10) {
+          const upperCount = (clean.match(/[A-Z]/g) || []).length;
+          if (upperCount / letters.length > 0.45) {
+            score += 14;
+            signals.push('Excessive uppercase');
+          }
+        }
+
+        for (const rule of SAFE_RULES) {
+          if (rule.pattern.test(clean)) {
+            score += rule.weight;
+            if (signals.length === 0) signals.push(rule.label);
+          }
+        }
+
+        const clamped = Math.max(4, Math.min(99, score));
+        let verdict = 'Not spam';
+        let confidence = 100 - clamped;
+
+        if (clamped >= 55) {
+          verdict = 'Spam';
+          confidence = clamped;
+        } else if (clamped >= 36) {
+          verdict = 'Suspicious';
+          confidence = clamped + 15;
+        }
+
+        if (signals.length === 0) {
+          signals.push(verdict === 'Not spam' ? 'No spam triggers found' : 'Mixed heuristic score');
+        }
+
+        return { verdict, confidence: Math.min(99, Math.max(52, confidence)), signals };
+      }
+
+      function renderResult(res) {
+        const isSpam = res.verdict === 'Spam';
+        const isSuspicious = res.verdict === 'Suspicious';
+
+        elResultCard.className = 'rounded-xl border p-4 space-y-3 transition-all ' + (
+          isSpam
+            ? 'bg-rose-50/80 border-rose-200'
+            : isSuspicious
+              ? 'bg-amber-50/80 border-amber-200'
+              : 'bg-emerald-50/80 border-emerald-200'
+        );
+
+        elResultIconWrap.className = 'inline-flex items-center justify-center w-6 h-6 rounded-full ' + (
+          isSpam
+            ? 'bg-rose-100 text-rose-700'
+            : isSuspicious
+              ? 'bg-amber-100 text-amber-700'
+              : 'bg-emerald-100 text-emerald-700'
+        );
+
+        elResultIconWrap.innerHTML = isSpam
+          ? '<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>'
+          : isSuspicious
+            ? '<i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>'
+            : '<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>';
+
+        elResultLabel.textContent = res.verdict;
+        elResultLabel.className = 'font-semibold text-sm ' + (
+          isSpam ? 'text-rose-800' : isSuspicious ? 'text-amber-800' : 'text-emerald-800'
+        );
+
+        elResultConfidence.textContent = res.confidence + '% confident';
+        elResultConfidence.className = 'text-sm font-semibold tabular-nums ' + (
+          isSpam ? 'text-rose-800' : isSuspicious ? 'text-amber-800' : 'text-emerald-800'
+        );
+
+        elResultBar.style.width = res.confidence + '%';
+        elResultBar.className = 'bar-fill h-full rounded-full ' + (
+          isSpam ? 'bg-rose-600' : isSuspicious ? 'bg-amber-500' : 'bg-emerald-600'
+        );
+
+        elSignalsWrap.innerHTML = '';
+        res.signals.forEach(sig => {
+          const badge = document.createElement('span');
+          badge.className = 'text-[11px] font-medium px-2 py-0.5 rounded-md bg-white/90 border border-black/5 text-slate-700';
+          badge.textContent = sig;
+          elSignalsWrap.appendChild(badge);
+        });
+
+        if (window.lucide) lucide.createIcons();
+      }
+
+      function renderHistory() {
+        elHistoryList.innerHTML = '';
+        if (history.length === 0) {
+          const empty = document.createElement('li');
+          empty.className = 'py-3 text-xs text-slate-400 text-center';
+          empty.textContent = 'No checks yet. Test a message above.';
+          elHistoryList.appendChild(empty);
+          return;
+        }
+
+        history.slice(0, 6).forEach(item => {
+          const li = document.createElement('li');
+          li.className = 'py-2.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50 -mx-2 px-2 rounded-lg transition';
+
+          const textSpan = document.createElement('span');
+          textSpan.className = 'text-xs sm:text-sm text-slate-700 truncate';
+          textSpan.textContent = item.text;
+
+          const badge = document.createElement('span');
+          const isSpam = item.verdict === 'Spam';
+          const isSusp = item.verdict === 'Suspicious';
+          badge.className = 'shrink-0 text-[11px] font-medium px-2.5 py-0.5 rounded-full ' + (
+            isSpam
+              ? 'bg-rose-100 text-rose-700'
+              : isSusp
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-emerald-100 text-emerald-700'
+          );
+          badge.textContent = item.verdict;
+
+          li.appendChild(textSpan);
+          li.appendChild(badge);
+          li.addEventListener('click', () => {
+            elInput.value = item.text;
+            updateCharCount();
+            renderResult(item);
+          });
+
+          elHistoryList.appendChild(li);
+        });
+      }
+
+      function updateModeUI() {
+        if (useApi && apiUrl) {
+          elModeDot.className = 'w-2 h-2 rounded-full bg-blue-500';
+          elModeLabel.textContent = 'AWS Lambda API';
+          elApiStatus.textContent = 'Active endpoint: ' + apiUrl;
+        } else {
+          elModeDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+          elModeLabel.textContent = 'Local Engine';
+          elApiStatus.textContent = 'Using built-in client scoring engine.';
+        }
+      }
+
+      function updateCharCount() {
+        elCharCount.textContent = elInput.value.length + ' / 1000 characters';
+      }
+
+      async function handleCheck() {
+        const text = elInput.value.trim();
+        if (!text) {
+          showToast('Please enter a message to check.');
+          return;
+        }
+
+        elBtnCheck.disabled = true;
+        elBtnCheckText.textContent = 'Checking...';
+
+        let result = null;
+        if (useApi && apiUrl) {
+          try {
+            const resp = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: text })
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data && data.verdict) {
+                result = {
+                  verdict: data.verdict,
+                  confidence: Number(data.confidence) || 90,
+                  signals: Array.isArray(data.signals) && data.signals.length ? data.signals : ['AWS Lambda prediction']
+                };
+              }
+            }
+          } catch (_) {
+            showToast('API unreachable — used local engine.');
+          }
+        }
+
+        if (!result) {
+          result = analyzeLocally(text);
+        }
+
+        renderResult(result);
+
+        history = [
+          { id: 'chk-' + Date.now(), text, verdict: result.verdict, confidence: result.confidence, signals: result.signals },
+          ...history.filter(h => h.text !== text)
+        ].slice(0, 8);
+        saveHistory();
+        renderHistory();
+
+        elBtnCheck.disabled = false;
+        elBtnCheckText.textContent = 'Check message';
+      }
+
+      // Event Listeners
+      elInput.addEventListener('input', updateCharCount);
+      elBtnCheck.addEventListener('click', handleCheck);
+
+      elBtnClear.addEventListener('click', () => {
+        elInput.value = '';
+        updateCharCount();
+        elInput.focus();
+      });
+
+      elBtnClearHistory.addEventListener('click', () => {
+        history = [];
+        saveHistory();
+        renderHistory();
+        showToast('History cleared.');
+      });
+
+      document.querySelectorAll('.sample-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          elInput.value = btn.getAttribute('data-sample') || '';
+          updateCharCount();
+          handleCheck();
+        });
+      });
+
+      elModeToggle.addEventListener('click', () => {
+        elApiPanel.classList.toggle('hidden');
+        elApiInput.value = apiUrl;
+      });
+
+      elApiClose.addEventListener('click', () => elApiPanel.classList.add('hidden'));
+
+      elApiSave.addEventListener('click', () => {
+        const val = elApiInput.value.trim();
+        if (val && !val.startsWith('https://')) {
+          showToast('Please enter a valid https:// API endpoint.');
+          return;
+        }
+        apiUrl = val;
+        useApi = Boolean(val);
+        saveApiUrl(val);
+        updateModeUI();
+        elApiPanel.classList.add('hidden');
+        showToast(val ? 'AWS Lambda endpoint saved.' : 'Switched to Local Engine.');
+      });
+
+      elArchOpen.addEventListener('click', () => elArchModal.classList.remove('hidden'));
+      elArchClose.addEventListener('click', () => elArchModal.classList.add('hidden'));
+      elArchOk.addEventListener('click', () => elArchModal.classList.add('hidden'));
+      elArchModal.addEventListener('click', (e) => {
+        if (e.target === elArchModal) elArchModal.classList.add('hidden');
+      });
+
+      // Init
+      elApiInput.value = apiUrl;
+      updateCharCount();
+      updateModeUI();
+      renderResult(analyzeLocally(elInput.value));
+      renderHistory();
+      if (window.lucide) lucide.createIcons();
+    })();
+  </script>
+</body>
+</html>
